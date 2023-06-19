@@ -11,7 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dataset import DroneImages
 from metric import to_mask, IntersectionOverUnion
-from model import MaskRCNN
+from model import bigMaskRCNN
 from tqdm import tqdm
 
 
@@ -38,7 +38,7 @@ def train(hyperparameters: argparse.Namespace):
     train_data, test_data = torch.utils.data.random_split(drone_images, [0.8, 0.2])
 
     # initialize MaskRCNN model
-    model = MaskRCNN()
+    model = bigMaskRCNN()
     model.to(device)
 
     # set up optimization procedure
