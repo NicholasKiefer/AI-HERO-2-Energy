@@ -5,7 +5,7 @@ from train import collate_fn
 
 
 def data_tests():
-    data = DroneImages(root='../datasets/raw_data', max_images=10)
+    data = DroneImages(root='../datasets/raw_data', max_images=None)
     #loader = torch.utils.data.DataLoader(
     #    data,
     #    batch_size=len(data),

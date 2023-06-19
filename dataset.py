@@ -24,10 +24,12 @@ class DroneImages(torch.utils.data.Dataset):
         with open(path, 'r') as handle:
             content = json.load(handle)
 
-        # cutting the front for cleaner code
-        max_images = -(max_images or 0)
-        images = content['images'][max_images:]
-        annotations = content['annotations'][max_images:]
+        if max_images is None:
+            images = content['images']
+            annotations = content['annotations']
+        else:
+            images = content['images'][:max_images]
+            annotations = content['annotations'][:max_images]
 
         self.ids = [entry['id'] for entry in images]
         self.images = {entry['id']: self.root / pathlib.Path(entry['file_name']).name for entry in images}
