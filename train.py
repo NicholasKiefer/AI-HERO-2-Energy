@@ -7,12 +7,22 @@ import numpy as np
 import torch
 import torch.optim
 import torch.utils.data
+import torch.distributed as dist
 
 from dataset import DroneImages
 from metric import to_mask, IntersectionOverUnion
 from model import MaskRCNN
 from tqdm import tqdm
 
+# set up process group 
+def set_up_pg():
+    world_size = int(os.getenv("SLURM_NPROCS")) # Get overall number of processes.
+    rank = int(os.getenv("SLURM_PROCID"))       # Get individual process ID.
+    slurm_job_gpus = os.getenv("SLURM_JOB_GPUS")
+    slurm_localid = int(os.getenv("SLURM_LOCALID"))
+    gpus_per_node = torch.cuda.device_count()
+    gpu = rank % gpus_per_node
+    assert gpu == slurm_localid
 
 def collate_fn(batch) -> tuple:
     return tuple(zip(*batch))
