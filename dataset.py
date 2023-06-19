@@ -4,7 +4,7 @@ import pathlib
 import numpy as np
 import torch
 import torch.utils.data
-
+import torchvision as tv
 from PIL import Image, ImageDraw
 
 from typing import Optional
@@ -14,6 +14,15 @@ class DroneImages(torch.utils.data.Dataset):
     def __init__(self, root: str = 'data', max_images: Optional[int] = None):
         self.root = pathlib.Path(root)
         self.parse_json(self.root / 'descriptor.json', max_images=max_images)
+        
+        image_mean = [0.485, 0.456, 0.406, 0.5, 0.5]
+        image_std = [0.229, 0.224, 0.225, 0.225, 0.225]
+            
+        self.transform = tv.transforms.Compose([
+            tv.transforms.ToTensor(),
+            tv.ops.Permute(2, 0, 1),
+            tv.transforms.Normalize(image_mean, image_std),
+        ])
 
     def parse_json(self, path: pathlib.Path, max_images: Optional[int] = None):
         """
