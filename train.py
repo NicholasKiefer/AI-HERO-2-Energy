@@ -2,20 +2,38 @@
 
 import argparse
 import random
+import os
 
 import numpy as np
 import torch
 import torch.optim
 import torch.utils.data
 import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from dataset import DroneImages
 from metric import to_mask, IntersectionOverUnion
 from model import MaskRCNN
 from tqdm import tqdm
 
-# set up process group 
-def set_up_pg():
+
+def collate_fn(batch) -> tuple:
+    return tuple(zip(*batch))
+
+
+def get_device_ddp(slurm_localid) -> torch.device:
+    return f'cuda:{slurm_localid}' if torch.cuda.is_available() else f'cpu:{slurm_localid}'
+
+
+def train(hyperparameters: argparse.Namespace):
+    # get local node id 
+    slurm_localid = int(os.getenv("SLURM_LOCALID"))
+    # set fixed seeds for reproducible execution
+    random.seed(hyperparameters.seed)
+    np.random.seed(hyperparameters.seed)
+    torch.manual_seed(hyperparameters.seed)
+
+    # init ddp 
     world_size = int(os.getenv("SLURM_NPROCS")) # Get overall number of processes.
     rank = int(os.getenv("SLURM_PROCID"))       # Get individual process ID.
     slurm_job_gpus = os.getenv("SLURM_JOB_GPUS")
@@ -23,24 +41,19 @@ def set_up_pg():
     gpus_per_node = torch.cuda.device_count()
     gpu = rank % gpus_per_node
     assert gpu == slurm_localid
-
-def collate_fn(batch) -> tuple:
-    return tuple(zip(*batch))
-
-
-def get_device() -> torch.device:
-    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-def train(hyperparameters: argparse.Namespace):
-    # set fixed seeds for reproducible execution
-    random.seed(hyperparameters.seed)
-    np.random.seed(hyperparameters.seed)
-    torch.manual_seed(hyperparameters.seed)
+    device = get_device_ddp(slurm_localid=slurm_localid)
+    torch.cuda.set_device(device)
+    dist.init_process_group(backend="nccl", 
+                            rank=rank, 
+                            world_size=world_size, 
+                            init_method="env://")
+    if dist.is_initialized():
+        print(f"Rank {rank}/{world_size}: Process group initialized with torch rank {torch.distributed.get_rank()} and torch world size {torch.distributed.get_world_size()}.")
 
     # determines the execution device, i.e. CPU or GPU
-    device = get_device()
+
     print(f'Training on {device}')
+
 
     # set up the dataset
     drone_images = DroneImages(hyperparameters.root)
@@ -49,7 +62,11 @@ def train(hyperparameters: argparse.Namespace):
     # initialize MaskRCNN model
     model = MaskRCNN()
     model.to(device)
-
+    
+    # wrap model with ddp
+    model = DDP(model,
+                device_ids=[slurm_localid],
+                output_device=slurm_localid)
     # set up optimization procedure
     optimizer = torch.optim.Adam(model.parameters(), lr=hyperparameters.lr)
     best_iou = 0.
@@ -123,6 +140,8 @@ def train(hyperparameters: argparse.Namespace):
             torch.save(model.state_dict(), 'checkpoint.pt')
         else:
             print('\n')
+
+    dist.destroy_process_group()
 
 
 if __name__ == '__main__':
