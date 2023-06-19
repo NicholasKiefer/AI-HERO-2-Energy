@@ -11,11 +11,12 @@ from typing import Optional
 
 
 class DroneImages(torch.utils.data.Dataset):
-    def __init__(self, root: str = 'data', max_images: Optional[int] = None):
+    def __init__(self, root: str = 'data', downsample_ratio: Optional[int] = None):
         self.root = pathlib.Path(root)
-        self.parse_json(self.root / 'descriptor.json', max_images=max_images)
+        self.parse_json(self.root / 'descriptor.json')
+        self.downsample_ratio = downsample_ratio
 
-    def parse_json(self, path: pathlib.Path, max_images: Optional[int] = None):
+    def parse_json(self, path: pathlib.Path):
         """
         Reads and indexes the descriptor.json
 
@@ -24,10 +25,8 @@ class DroneImages(torch.utils.data.Dataset):
         with open(path, 'r') as handle:
             content = json.load(handle)
 
-        # cutting the front for cleaner code
-        max_images = -(max_images or 0)
-        images = content['images'][max_images:]
-        annotations = content['annotations'][max_images:]
+        images = content['images']
+        annotations = content['annotations']
 
         self.ids = [entry['id'] for entry in images]
         self.images = {entry['id']: self.root / pathlib.Path(entry['file_name']).name for entry in images}
@@ -84,6 +83,8 @@ class DroneImages(torch.utils.data.Dataset):
             'masks': masks,  # UIntTensor[N, H, W]
         }
         x = torch.tensor(x, dtype=torch.float).permute((2, 0, 1))
+        if self.downsample_ratio is not None:
+            x = torch.nn.functional.max_pool2d(x, kernel_size=(self.downsample_ratio, self.downsample_ratio))
         x = x / 255.
 
         return x, y
