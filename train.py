@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.optim
 import torch.utils.data
+from torch.utils.tensorboard import SummaryWriter
 
 from dataset import DroneImages
 from metric import to_mask, IntersectionOverUnion
@@ -44,6 +45,8 @@ def train(hyperparameters: argparse.Namespace):
     optimizer = torch.optim.Adam(model.parameters(), lr=hyperparameters.lr)
     best_iou = 0.
 
+    writer = SummaryWriter()
+
     train_loader = torch.utils.data.DataLoader(
         train_data,
         batch_size=hyperparameters.batch,
@@ -79,6 +82,8 @@ def train(hyperparameters: argparse.Namespace):
                 train_predictions = model(x)
                 train_metric(*to_mask(train_predictions, label))
                 model.train()
+            writer.add_scalar("loss/train", loss.item(), epoch)
+            writer.add_scalar("iou/train", train_metric.compute(), epoch)
                 
         train_loss /= len(train_loader)
 
@@ -100,6 +105,7 @@ def train(hyperparameters: argparse.Namespace):
                 test_predictions = model(x_test)
                 test_metric(*to_mask(test_predictions, test_label))
 
+        writer.add_scalar("iou/test", test_metric.compute())
         # output the losses
         print(f'Epoch {epoch}')
         print(f'\tTrain loss: {train_loss}')
@@ -113,6 +119,8 @@ def train(hyperparameters: argparse.Namespace):
             torch.save(model.state_dict(), 'checkpoint.pt')
         else:
             print('\n')
+        writer.flush()
+        writer.close()
 
 
 if __name__ == '__main__':
