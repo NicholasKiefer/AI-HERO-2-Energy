@@ -7,13 +7,15 @@ import torch.utils.data
 
 from PIL import Image, ImageDraw
 
+from typing import Optional
+
 
 class DroneImages(torch.utils.data.Dataset):
-    def __init__(self, root: str = 'data'):
+    def __init__(self, root: str = 'data', max_images: Optional[int] = None):
         self.root = pathlib.Path(root)
-        self.parse_json(self.root / 'descriptor.json')
+        self.parse_json(self.root / 'descriptor.json', max_images=max_images)
 
-    def parse_json(self, path: pathlib.Path):
+    def parse_json(self, path: pathlib.Path, max_images: Optional[int] = None):
         """
         Reads and indexes the descriptor.json
 
@@ -22,13 +24,18 @@ class DroneImages(torch.utils.data.Dataset):
         with open(path, 'r') as handle:
             content = json.load(handle)
 
-        self.ids = [entry['id'] for entry in content['images']]
-        self.images = {entry['id']: self.root / pathlib.Path(entry['file_name']).name for entry in content['images']}
+        # cutting the front for cleaner code
+        max_images = -(max_images or 0)
+        images = content['images'][max_images:]
+        annotations = content['annotations'][max_images:]
+
+        self.ids = [entry['id'] for entry in images]
+        self.images = {entry['id']: self.root / pathlib.Path(entry['file_name']).name for entry in images}
 
         # add all annotations into a list for each image
         self.polys = {}
         self.bboxes = {}
-        for entry in content['annotations']:
+        for entry in annotations:
             image_id = entry['image_id']
             self.polys.setdefault(image_id, []).append(entry['segmentation'])
             self.bboxes.setdefault(image_id, []).append(entry['bbox'])
