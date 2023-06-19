@@ -44,16 +44,17 @@ def train(hyperparameters: argparse.Namespace):
     optimizer = torch.optim.Adam(model.parameters(), lr=hyperparameters.lr)
     best_iou = 0.
 
+    train_loader = torch.utils.data.DataLoader(
+        train_data,
+        batch_size=hyperparameters.batch,
+        shuffle=True,
+        drop_last=True,
+        collate_fn=collate_fn)
+
     # start the actual training procedure
     for epoch in range(hyperparameters.epochs):
         # set the model into training mode
         model.train()
-        train_loader = torch.utils.data.DataLoader(
-                train_data,
-                batch_size=hyperparameters.batch,
-                shuffle=True,
-                drop_last=True,
-                collate_fn=collate_fn)
 
         # training procedure
         train_loss = 0.0
