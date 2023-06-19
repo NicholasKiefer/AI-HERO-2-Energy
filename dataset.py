@@ -5,6 +5,8 @@ import numpy as np
 import os
 import torch
 import torch.utils.data
+import torchvision as tv
+import albumentations as ab
 
 from PIL import Image, ImageDraw
 
@@ -12,15 +14,24 @@ from typing import Optional
 
 
 class DroneImages(torch.utils.data.Dataset):
-    def __init__(self, root: str = 'data', max_images: Optional[int] = None, downsample_ratio:Optional[int] = None):
+    def __init__(self, root: str = 'data', max_images: Optional[int] = None, downsample_ratio:Optional[int] = None, augment:Optional[bool] = False):
         self.root = pathlib.Path(root)
         self.parse_json(self.root / 'descriptor.json', max_images=max_images)
         self.downsample_ratio = downsample_ratio
+        self.augment = augment
+        
         if downsample_ratio is not None:
             os.makedirs(self.root + f"_{downsample_ratio}", exist_ok=True)
             sampled_path = self.root + f"_{downsample_ratio}"
             self.sampled = {key: sampled_path + f"/{self.images[key]}" for key in self.ids if os.path.exists(sampled_path + f"/{self.images[key]}")}
-
+        
+        self.transforms = tv.transforms.Compose([
+            tv.transforms.ToTensor(),
+            tv.ops.Permute(0, 2, 1),  # makes (c, h, w)
+        ])
+        
+        if augment:
+            self.augmentation = ab.Compose([ab.RandomCrop(480, 640), ], ab.BboxParams("pascal_voc"))  # these need equivalent for bounding box/seg mask
 
     def parse_json(self, path: pathlib.Path, max_images: Optional[int] = None):
         """
@@ -99,8 +110,15 @@ class DroneImages(torch.utils.data.Dataset):
             'labels': labels,  # Int64Tensor[N]
             'masks': masks,  # UIntTensor[N, H, W]
         }
-        x = torch.tensor(x, dtype=torch.float).permute((2, 0, 1))
+        x = self.transforms(x)
         x = x / 255.
+        
+        if self.augment:
+            augmented = self.augment(image=x, mask=masks, bboxes=boxes)
+            x = augmented["image"]
+            y["boxes"] = augmented["bboxes"]
+            y["masks"] = augmented["mask"]
+        
         if self.downsample_ratio is not None and save:
             # either downsample by interpolate
             # x = torch.nn.functional.interpolate(x, scale_factor=self.downsample_ratio,)
