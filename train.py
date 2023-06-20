@@ -98,7 +98,6 @@ def train(hyperparameters: argparse.Namespace):
     train_loader = torch.utils.data.DataLoader(
         train_sampler,
         batch_size=hyperparameters.batch,
-        shuffle=True,
         drop_last=True,
         collate_fn=collate_fn,
         sampler=train_sampler)
