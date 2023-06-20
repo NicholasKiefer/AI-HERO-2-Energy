@@ -60,7 +60,23 @@ def train(hyperparameters: argparse.Namespace):
     train_fraction = 0.02
     valid_fraction = 0.01
     tests_fraction = 1. - (train_fraction + valid_fraction)
-    train_data, test_data = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
+    train_data, valid_data, test_data = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
+
+    # distributed sampling of the dataset
+    train_sampler = torch.utils.data.distributed.DistributedSampler(
+                        train_data,
+                        num_replicas=torch.distributed.get_world_size(),
+                        rank=torch.distributed.get_rank(),
+                        shuffle=True,
+                        drop_last=True)
+    
+    valid_sampler = torch.utils.data.distributed.DistributedSampler(
+                    valid_data,
+                    num_replicas=torch.distributed.get_world_size(),
+                    rank=torch.distributed.get_rank(),
+                    shuffle=True,
+                    drop_last=True)
+    
 
     # initialize MaskRCNN model
     model = MaskRCNN()
@@ -75,12 +91,15 @@ def train(hyperparameters: argparse.Namespace):
     best_iou = 0.
 
     train_loader = torch.utils.data.DataLoader(
-        train_data,
+        train_sampler,
         batch_size=hyperparameters.batch,
         shuffle=True,
         drop_last=True,
-        collate_fn=collate_fn)
+        collate_fn=collate_fn,
+        sampler=train_sampler)
 
+
+    
     # start the actual training procedure
     for epoch in range(hyperparameters.epochs):
         # set the model into training mode
@@ -112,9 +131,17 @@ def train(hyperparameters: argparse.Namespace):
                 
         train_loss /= len(train_loader)
 
+
         # set the model in evaluation mode
         model.eval()
-        test_loader = torch.utils.data.DataLoader(test_data, batch_size=hyperparameters.batch, collate_fn=collate_fn)
+        # test_loader = torch.utils.data.DataLoader(valid_data, batch_size=hyperparameters.batch, collate_fn=collate_fn)
+        test_loader = torch.utils.data.DataLoader(
+        valid_sampler,
+        batch_size=hyperparameters.batch,
+        shuffle=True,
+        drop_last=True,
+        collate_fn=collate_fn,
+        sampler=valid_sampler)
 
         # test procedure
         test_metric = IntersectionOverUnion(task='multiclass', num_classes=2)
@@ -131,14 +158,25 @@ def train(hyperparameters: argparse.Namespace):
                 test_metric(*to_mask(test_predictions, test_label))
 
         # output the losses
+
+        # Compute average distributed train loss.
+        torch.distributed.all_reduce(train_loss) # Allreduce rank-local mini-batch losses.
+        train_loss /= world_size # Average allreduced rank-local mini-batch losses over all ranks.
+        # average train IoU
+        train_iou = train.metric.compute()
+        torch.distributed.all_reduce(train_iou)
+        # average test IoU
+        test_iou = train.metric.compute()
+        torch.distributed.all_reduce(test_iou)       
+
         print(f'Epoch {epoch}')
         print(f'\tTrain loss: {train_loss}')
-        print(f'\tTrain IoU:  {train_metric.compute()}')
-        print(f'\tTest IoU:   {test_metric.compute()}')
+        print(f'\tTrain IoU:  {train_iou}')
+        print(f'\tTest IoU:   {test_iou}')
 
         # save the best performing model on disk
-        if test_metric.compute() > best_iou:
-            best_iou = test_metric.compute()
+        if test_iou > best_iou:
+            best_iou = test_iou
             print('\tSaving better model\n')
             torch.save(model.state_dict(), 'checkpoint.pt')
         else:
