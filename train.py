@@ -37,11 +37,12 @@ def train(hyperparameters: argparse.Namespace):
     # init ddp 
     world_size = int(os.getenv("SLURM_NPROCS")) # Get overall number of processes.
     rank = int(os.getenv("SLURM_PROCID"))       # Get individual process ID.
-    slurm_job_gpus = os.getenv("SLURM_JOB_GPUS")
+    # slurm_job_gpus = os.getenv("SLURM_JOB_GPUS")
     slurm_localid = int(os.getenv("SLURM_LOCALID"))
     gpus_per_node = torch.cuda.device_count()
-    gpu = rank % gpus_per_node
-    assert gpu == slurm_localid
+    print(f'Used GPUs: {gpus_per_node}')
+    # gpu = rank % gpus_per_node
+    # assert gpu == slurm_localid
     device = get_device_ddp(slurm_localid=slurm_localid)
     torch.cuda.set_device(device)
     dist.init_process_group(backend="nccl", 
@@ -57,11 +58,11 @@ def train(hyperparameters: argparse.Namespace):
 
 
     # set up the dataset
-    drone_images = DroneImages(hyperparameters.root)
+    drone_images = DroneImages(hyperparameters.root, downsample_ratio=2, augment=True)
     train_fraction = 0.02
     valid_fraction = 0.01
     tests_fraction = 1. - (train_fraction + valid_fraction)
-    train_data, valid_data, test_data = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
+    train_data, valid_data, _ = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
 
     # distributed sampling of the dataset
     train_sampler = torch.utils.data.distributed.DistributedSampler(
@@ -141,12 +142,11 @@ def train(hyperparameters: argparse.Namespace):
         model.eval()
         # test_loader = torch.utils.data.DataLoader(valid_data, batch_size=hyperparameters.batch, collate_fn=collate_fn)
         test_loader = torch.utils.data.DataLoader(
-        valid_sampler,
-        batch_size=hyperparameters.batch,
-        shuffle=True,
-        drop_last=True,
-        collate_fn=collate_fn,
-        sampler=valid_sampler)
+            valid_sampler,
+            batch_size=hyperparameters.batch,
+            drop_last=True,
+            collate_fn=collate_fn,
+            sampler=valid_sampler)
 
         # test procedure
         test_metric = IntersectionOverUnion(task='multiclass', num_classes=2)

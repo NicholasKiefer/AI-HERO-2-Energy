@@ -1,19 +1,18 @@
 #!/bin/bash
 
-#SBATCH --job-name=AI-HERO_energy_baseline_training
+#SBATCH --job-name=AI-HERO_E3_training
 #SBATCH --partition=accelerated
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:4
 #SBATCH --ntasks=4
 #SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=76
-#SBATCH --time=20:00:00
+#SBATCH --time=00:05:00
 #SBATCH --output=/hkfs/work/workspace/scratch/ih5525-E3/results/slurm-%j.out
 
 export CUDA_CACHE_DISABLE=1
-export OMP_NUM_THREADS=76
+# export OMP_NUM_THREADS=76
 
-data_workspace=/hkfs/work/workspace/scratch/ih5525-E3/datasets/
+data_workspace=/hkfs/work/workspace/scratch/ih5525-E3/datasets/raw_data
 group_workspace=/hkfs/work/workspace/scratch/ih5525-E3
 
 module load compiler/gnu/11
