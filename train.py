@@ -40,7 +40,8 @@ def train(hyperparameters: argparse.Namespace):
     # slurm_job_gpus = os.getenv("SLURM_JOB_GPUS")
     slurm_localid = int(os.getenv("SLURM_LOCALID"))
     gpus_per_node = torch.cuda.device_count()
-    print(f'Used GPUs: {gpus_per_node}')
+    if rank==0:
+        print(f'Used GPUs: {gpus_per_node}')
     # gpu = rank % gpus_per_node
     # assert gpu == slurm_localid
     device = get_device_ddp(slurm_localid=slurm_localid)
