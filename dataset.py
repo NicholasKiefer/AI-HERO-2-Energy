@@ -116,7 +116,7 @@ class DroneImages(torch.utils.data.Dataset):
         print(f'type of {type(bboxes)}')
 
         if self.augment:
-            augmented = self.augmentation(image=x, mask=masks, bboxes=boxes)
+            augmented = self.augmentation(image=x.numpy(), mask=masks.numpy(), bboxes=boxes)
             x = augmented["image"]
             y["boxes"] = augmented["bboxes"]
             y["masks"] = augmented["mask"]
