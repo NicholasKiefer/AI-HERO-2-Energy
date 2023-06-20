@@ -35,7 +35,10 @@ def train(hyperparameters: argparse.Namespace):
 
     # set up the dataset
     drone_images = DroneImages(hyperparameters.root)
-    train_data, test_data = torch.utils.data.random_split(drone_images, [0.8, 0.2])
+    train_fraction = 0.02
+    valid_fraction = 0.01
+    tests_fraction = 1. - (train_fraction + valid_fraction)
+    train_data, test_data = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
 
     # initialize MaskRCNN model
     model = bigMaskRCNN()

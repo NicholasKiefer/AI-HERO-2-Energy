@@ -1,11 +1,13 @@
 import torch
 
 from dataset import DroneImages
-from train import collate_fn
+#from train import collate_fn
 
 
 def data_tests():
-    data = DroneImages(root='../datasets/raw_data', max_images=None)
+    full_data = DroneImages(root='../datasets/raw_data', downsample_ratio=2)
+    data_fraction = 0.2
+    data, _ = torch.utils.data.random_split(full_data, [data_fraction, 1. - data_fraction])
     #loader = torch.utils.data.DataLoader(
     #    data,
     #    batch_size=len(data),
