@@ -96,7 +96,7 @@ def train(hyperparameters: argparse.Namespace):
     writer = SummaryWriter()
 
     train_loader = torch.utils.data.DataLoader(
-        train_sampler,
+        train_data,
         batch_size=hyperparameters.batch,
         drop_last=True,
         collate_fn=collate_fn,
@@ -142,7 +142,7 @@ def train(hyperparameters: argparse.Namespace):
         model.eval()
         # test_loader = torch.utils.data.DataLoader(valid_data, batch_size=hyperparameters.batch, collate_fn=collate_fn)
         test_loader = torch.utils.data.DataLoader(
-            valid_sampler,
+            valid_data,
             batch_size=hyperparameters.batch,
             drop_last=True,
             collate_fn=collate_fn,
