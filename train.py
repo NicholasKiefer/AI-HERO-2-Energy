@@ -130,7 +130,7 @@ def train(hyperparameters: argparse.Namespace):
             with torch.no_grad():
                 model.eval()
                 train_predictions = model(x)
-                train_metric(*to_mask(train_predictions, label))
+                train_metric(*to_mask(torch.transpose(train_predictions,-1,-2), label))
                 model.train()
             writer.add_scalar("loss/train", loss.item(), epoch)
             writer.add_scalar("iou/train", train_metric.compute(), epoch)
@@ -160,7 +160,7 @@ def train(hyperparameters: argparse.Namespace):
             # score_threshold = 0.7
             with torch.no_grad():
                 test_predictions = model(x_test)
-                test_metric(*to_mask(test_predictions, test_label))
+                test_metric(*to_mask(torch.transpose(test_predictions,-1,-2), test_label))
 
         writer.add_scalar("iou/test", test_metric.compute())
         # output the losses
