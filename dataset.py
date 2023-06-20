@@ -21,9 +21,9 @@ class DroneImages(torch.utils.data.Dataset):
         self.augment = augment
         
         if downsample_ratio is not None:
-            os.makedirs(self.root + f"_{downsample_ratio}", exist_ok=True)
-            sampled_path = self.root + f"_{downsample_ratio}"
-            self.sampled = {key: sampled_path + f"/{self.images[key]}" for key in self.ids if os.path.exists(sampled_path + f"/{self.images[key]}")}
+            sampled_path = self.root.parent / (self.root.name + f"_{self.downsample_ratio}")
+            os.makedirs(sampled_path, exist_ok=True)
+            self.sampled = {key: sampled_path / f"{self.images[key]}" for key in self.ids if os.path.exists(sampled_path / f"{self.images[key]}")}
         
         self.transforms = tv.transforms.Compose([
             tv.transforms.ToTensor(),
