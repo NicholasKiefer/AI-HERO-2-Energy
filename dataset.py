@@ -12,17 +12,16 @@ from typing import Optional
 
 
 class DroneImages(torch.utils.data.Dataset):
-    def __init__(self, root: str = 'data', max_images: Optional[int] = None, downsample_ratio:Optional[int] = None):
+    def __init__(self, root: str = 'data', downsample_ratio: Optional[int] = None):
         self.root = pathlib.Path(root)
-        self.parse_json(self.root / 'descriptor.json', max_images=max_images)
+        self.parse_json(self.root / 'descriptor.json')
         self.downsample_ratio = downsample_ratio
         if downsample_ratio is not None:
             os.makedirs(self.root + f"_{downsample_ratio}", exist_ok=True)
             sampled_path = self.root + f"_{downsample_ratio}"
             self.sampled = {key: sampled_path + f"/{self.images[key]}" for key in self.ids if os.path.exists(sampled_path + f"/{self.images[key]}")}
 
-
-    def parse_json(self, path: pathlib.Path, max_images: Optional[int] = None):
+    def parse_json(self, path: pathlib.Path):
         """
         Reads and indexes the descriptor.json
 
@@ -31,12 +30,8 @@ class DroneImages(torch.utils.data.Dataset):
         with open(path, 'r') as handle:
             content = json.load(handle)
 
-        if max_images is None:
-            images = content['images']
-            annotations = content['annotations']
-        else:
-            images = content['images'][:max_images]
-            annotations = content['annotations'][:max_images]
+        images = content['images']
+        annotations = content['annotations']
 
         self.ids = [entry['id'] for entry in images]
         self.images = {entry['id']: self.root / pathlib.Path(entry['file_name']).name for entry in images}
@@ -69,7 +64,9 @@ class DroneImages(torch.utils.data.Dataset):
         if self.downsample_ratio is not None:
             if self.sampled.get(image_id, None) is not None:
                 file_path = self.sampled[image_id]
+                print(f'Using saved image {image_id}')
             else:
+                print(f'Saving image {image_id}')
                 save = True
 
         # deserialize the image from disk
