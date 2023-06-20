@@ -8,6 +8,7 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=76
 #SBATCH --time=20:00:00
+#SBATCH --output=/hkfs/work/workspace/scratch/ih5525-E3/results/slurm-%j.out
 
 export CUDA_CACHE_DISABLE=1
 export OMP_NUM_THREADS=76
