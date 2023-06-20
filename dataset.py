@@ -97,6 +97,8 @@ class DroneImages(torch.utils.data.Dataset):
             'masks': masks,  # UIntTensor[N, H, W]
         }
         x = torch.tensor(x, dtype=torch.float).permute((2, 0, 1))
+        if self.downsample_ratio is not None:
+            x = torch.nn.functional.max_pool2d(x, kernel_size=(self.downsample_ratio, self.downsample_ratio))
         x = x / 255.
         if self.downsample_ratio is not None and save:
             # either downsample by interpolate
