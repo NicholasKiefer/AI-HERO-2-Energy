@@ -168,19 +168,18 @@ def train(hyperparameters: argparse.Namespace):
         # average test IoU
         test_iou = train.metric.compute()
         torch.distributed.all_reduce(test_iou)       
-
         print(f'Epoch {epoch}')
         print(f'\tTrain loss: {train_loss}')
-        print(f'\tTrain IoU:  {train_iou}')
-        print(f'\tTest IoU:   {test_iou}')
-
-        # save the best performing model on disk
-        if test_iou > best_iou:
-            best_iou = test_iou
-            print('\tSaving better model\n')
-            torch.save(model.state_dict(), 'checkpoint.pt')
-        else:
-            print('\n')
+        if rank == 0:
+            print(f'\tTrain IoU:  {train_iou}')
+            print(f'\tTest IoU:   {test_iou}')
+            # save the best performing model on disk
+            if test_iou > best_iou:
+                best_iou = test_iou
+                print('\tSaving better model\n')
+                torch.save(model.state_dict(), 'checkpoint.pt')
+            else:
+                print('\n')
 
     dist.destroy_process_group()
 
