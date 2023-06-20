@@ -112,7 +112,7 @@ class DroneImages(torch.utils.data.Dataset):
         x = x / 255.
         
         if self.augment:
-            augmented = self.augment(image=x, mask=masks, bboxes=boxes)
+            augmented = self.augmentation(image=x, mask=masks, bboxes=boxes)
             x = augmented["image"]
             y["boxes"] = augmented["bboxes"]
             y["masks"] = augmented["mask"]
