@@ -14,13 +14,18 @@ from typing import Optional
 
 
 class DroneImages(torch.utils.data.Dataset):
+<<<<<<< HEAD
     def __init__(self, root: str = 'data', max_images: Optional[int] = None, downsample_ratio:Optional[int] = None, augment:Optional[bool] = False):
+=======
+    def __init__(self, root: str = 'data', downsample_ratio: Optional[int] = None):
+>>>>>>> main
         self.root = pathlib.Path(root)
-        self.parse_json(self.root / 'descriptor.json', max_images=max_images)
+        self.parse_json(self.root / 'descriptor.json')
         self.downsample_ratio = downsample_ratio
         self.augment = augment
         
         if downsample_ratio is not None:
+<<<<<<< HEAD
             os.makedirs(self.root + f"_{downsample_ratio}", exist_ok=True)
             sampled_path = self.root + f"_{downsample_ratio}"
             self.sampled = {key: sampled_path + f"/{self.images[key]}" for key in self.ids if os.path.exists(sampled_path + f"/{self.images[key]}")}
@@ -34,6 +39,13 @@ class DroneImages(torch.utils.data.Dataset):
             self.augmentation = ab.Compose([ab.RandomCrop(480, 640), ], ab.BboxParams("pascal_voc"))  # these need equivalent for bounding box/seg mask
 
     def parse_json(self, path: pathlib.Path, max_images: Optional[int] = None):
+=======
+            sampled_path = self.root.parent / (self.root.name + f"_{downsample_ratio}")
+            os.makedirs(sampled_path, exist_ok=True)
+            self.sampled = {key: sampled_path / f"{self.images[key]}" for key in self.ids if os.path.exists(sampled_path / f"{self.images[key]}")}
+
+    def parse_json(self, path: pathlib.Path):
+>>>>>>> main
         """
         Reads and indexes the descriptor.json
 
@@ -42,12 +54,8 @@ class DroneImages(torch.utils.data.Dataset):
         with open(path, 'r') as handle:
             content = json.load(handle)
 
-        if max_images is None:
-            images = content['images']
-            annotations = content['annotations']
-        else:
-            images = content['images'][:max_images]
-            annotations = content['annotations'][:max_images]
+        images = content['images']
+        annotations = content['annotations']
 
         self.ids = [entry['id'] for entry in images]
         self.images = {entry['id']: self.root / pathlib.Path(entry['file_name']).name for entry in images}
@@ -80,7 +88,9 @@ class DroneImages(torch.utils.data.Dataset):
         if self.downsample_ratio is not None:
             if self.sampled.get(image_id, None) is not None:
                 file_path = self.sampled[image_id]
+                print(f'Using saved image {image_id}')
             else:
+                print(f'Saving image {image_id}')
                 save = True
 
         # deserialize the image from disk
@@ -110,7 +120,13 @@ class DroneImages(torch.utils.data.Dataset):
             'labels': labels,  # Int64Tensor[N]
             'masks': masks,  # UIntTensor[N, H, W]
         }
+<<<<<<< HEAD
         x = self.transforms(x)
+=======
+        x = torch.tensor(x, dtype=torch.float).permute((2, 0, 1))
+        if self.downsample_ratio is not None:
+            x = torch.nn.functional.max_pool2d(x, kernel_size=(self.downsample_ratio, self.downsample_ratio))
+>>>>>>> main
         x = x / 255.
         
         if self.augment:
@@ -126,8 +142,9 @@ class DroneImages(torch.utils.data.Dataset):
             x = torch.nn.functional.max_pool2d(x, kernel_size=(self.downsample_ratio, self.downsample_ratio))
 
             small_x = (x * 255).permute(2, 0, 1).numpy().astype(np.int64)
-            new_file_path = file_path.split("/")[-1]
-            save_path = f"{self.root}_{self.downsample_ratio}/{new_file_path}"
+            #new_file_path = file_path.split("/")[-1]
+            #save_path = f"{self.root}_{self.downsample_ratio}/{new_file_path}"
+            save_path = self.root.parent / (self.root.name + f"_{self.downsample_ratio}") / file_path.name
             np.save(save_path, small_x)
             self.sampled[image_id] = save_path
         return x, y
