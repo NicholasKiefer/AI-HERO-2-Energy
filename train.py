@@ -130,6 +130,8 @@ def train(hyperparameters: argparse.Namespace):
             with torch.no_grad():
                 model.eval()
                 train_predictions = model(x)
+                for i,item in enumerate(train_predictions):
+                    train_predictions[i] = torch.transpose(item,-1,-2)
                 train_metric(*to_mask(train_predictions, label))
                 model.train()
             writer.add_scalar("loss/train", loss.item(), epoch)
@@ -160,6 +162,8 @@ def train(hyperparameters: argparse.Namespace):
             # score_threshold = 0.7
             with torch.no_grad():
                 test_predictions = model(x_test)
+                for i,item in enumerate(test_predictions):
+                    test_predictions[i] = torch.transpose(item,-1,-2)
                 test_metric(*to_mask(test_predictions, test_label))
 
         writer.add_scalar("iou/test", test_metric.compute())
