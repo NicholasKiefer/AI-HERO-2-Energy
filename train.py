@@ -173,10 +173,10 @@ def train(hyperparameters: argparse.Namespace):
         torch.distributed.all_reduce(torch.tensor(train_loss,device=device)) # Allreduce rank-local mini-batch losses.
         train_loss /= world_size # Average allreduced rank-local mini-batch losses over all ranks.
         # average train IoU
-        train_iou = train.metric.compute()
+        train_iou = train_metric.compute()
         torch.distributed.all_reduce(torch.tensor(train_iou,device=device))
         # average test IoU
-        test_iou = train.metric.compute()
+        test_iou = train_metric.compute()
         torch.distributed.all_reduce(torch.tensor(test_iou,device=device))       
         print(f'Epoch {epoch}')
         print(f'\tTrain loss: {train_loss}')
