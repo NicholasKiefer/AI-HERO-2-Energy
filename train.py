@@ -59,7 +59,7 @@ def train(hyperparameters: argparse.Namespace):
 
 
     # set up the dataset
-    drone_images = DroneImages(hyperparameters.root, downsample_ratio=2, augment=True)
+    drone_images = DroneImages(hyperparameters.root, downsample_ratio=None, augment=True)
     train_fraction = 0.02
     valid_fraction = 0.01
     tests_fraction = 1. - (train_fraction + valid_fraction)
