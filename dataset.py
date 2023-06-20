@@ -17,9 +17,9 @@ class DroneImages(torch.utils.data.Dataset):
         self.parse_json(self.root / 'descriptor.json')
         self.downsample_ratio = downsample_ratio
         if downsample_ratio is not None:
-            os.makedirs(self.root + f"_{downsample_ratio}", exist_ok=True)
-            sampled_path = self.root + f"_{downsample_ratio}"
-            self.sampled = {key: sampled_path + f"/{self.images[key]}" for key in self.ids if os.path.exists(sampled_path + f"/{self.images[key]}")}
+            sampled_path = self.root.parent / (self.root.name + f"_{downsample_ratio}")
+            os.makedirs(sampled_path, exist_ok=True)
+            self.sampled = {key: sampled_path / f"{self.images[key]}" for key in self.ids if os.path.exists(sampled_path / f"{self.images[key]}")}
 
     def parse_json(self, path: pathlib.Path):
         """
@@ -107,8 +107,9 @@ class DroneImages(torch.utils.data.Dataset):
             x = torch.nn.functional.max_pool2d(x, kernel_size=(self.downsample_ratio, self.downsample_ratio))
 
             small_x = (x * 255).permute(2, 0, 1).numpy().astype(np.int64)
-            new_file_path = file_path.split("/")[-1]
-            save_path = f"{self.root}_{self.downsample_ratio}/{new_file_path}"
+            #new_file_path = file_path.split("/")[-1]
+            #save_path = f"{self.root}_{self.downsample_ratio}/{new_file_path}"
+            save_path = self.root.parent / (self.root.name + f"_{self.downsample_ratio}") / file_path.name
             np.save(save_path, small_x)
             self.sampled[image_id] = save_path
         return x, y
