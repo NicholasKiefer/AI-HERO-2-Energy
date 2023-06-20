@@ -10,7 +10,16 @@
 #SBATCH --output=/hkfs/work/workspace/scratch/ih5525-E3/results/slurm-%j.out
 
 export CUDA_CACHE_DISABLE=1
-# export OMP_NUM_THREADS=76
+
+# export OMP_NUM_THREADS=76# Change 5-digit MASTER_PORT as you wish, SLURM will raise Error if duplicated with others.
+export MASTER_PORT=12340
+
+# Get the first node name as master address.
+master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export MASTER_ADDR=$master_addr
+echo "MASTER_ADDR="$MASTER_ADDR
+
+
 
 data_workspace=/hkfs/work/workspace/scratch/ih5525-E3/datasets/raw_data
 group_workspace=/hkfs/work/workspace/scratch/ih5525-E3
