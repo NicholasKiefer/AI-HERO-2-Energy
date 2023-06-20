@@ -2,6 +2,7 @@ import json
 import pathlib
 
 import numpy as np
+import os
 import torch
 import torch.utils.data
 import torchvision as tv
@@ -11,20 +12,16 @@ from typing import Optional
 
 
 class DroneImages(torch.utils.data.Dataset):
-    def __init__(self, root: str = 'data', max_images: Optional[int] = None):
+    def __init__(self, root: str = 'data', downsample_ratio: Optional[int] = None):
         self.root = pathlib.Path(root)
-        self.parse_json(self.root / 'descriptor.json', max_images=max_images)
-        
-        image_mean = [0.485, 0.456, 0.406, 0.5, 0.5]
-        image_std = [0.229, 0.224, 0.225, 0.225, 0.225]
-            
-        self.transform = tv.transforms.Compose([
-            tv.transforms.ToTensor(),
-            tv.ops.Permute(2, 0, 1),
-            tv.transforms.Normalize(image_mean, image_std),
-        ])
+        self.parse_json(self.root / 'descriptor.json')
+        self.downsample_ratio = downsample_ratio
+        if downsample_ratio is not None:
+            sampled_path = self.root.parent / (self.root.name + f"_{downsample_ratio}")
+            os.makedirs(sampled_path, exist_ok=True)
+            self.sampled = {key: sampled_path / f"{self.images[key]}" for key in self.ids if os.path.exists(sampled_path / f"{self.images[key]}")}
 
-    def parse_json(self, path: pathlib.Path, max_images: Optional[int] = None):
+    def parse_json(self, path: pathlib.Path):
         """
         Reads and indexes the descriptor.json
 
@@ -33,10 +30,8 @@ class DroneImages(torch.utils.data.Dataset):
         with open(path, 'r') as handle:
             content = json.load(handle)
 
-        # cutting the front for cleaner code
-        max_images = -(max_images or 0)
-        images = content['images'][max_images:]
-        annotations = content['annotations'][max_images:]
+        images = content['images']
+        annotations = content['annotations']
 
         self.ids = [entry['id'] for entry in images]
         self.images = {entry['id']: self.root / pathlib.Path(entry['file_name']).name for entry in images}
@@ -64,9 +59,18 @@ class DroneImages(torch.utils.data.Dataset):
         The corresponding segmentation mask is binary with dimensions [H x W].
         """
         image_id = self.ids[index]
+        save = False
+        file_path = self.images[image_id]
+        if self.downsample_ratio is not None:
+            if self.sampled.get(image_id, None) is not None:
+                file_path = self.sampled[image_id]
+                print(f'Using saved image {image_id}')
+            else:
+                print(f'Saving image {image_id}')
+                save = True
 
         # deserialize the image from disk
-        x = np.load(self.images[image_id])
+        x = np.load(file_path)
 
         polys = self.polys[image_id]
         bboxes = self.bboxes[image_id]
@@ -93,6 +97,19 @@ class DroneImages(torch.utils.data.Dataset):
             'masks': masks,  # UIntTensor[N, H, W]
         }
         x = torch.tensor(x, dtype=torch.float).permute((2, 0, 1))
+        if self.downsample_ratio is not None:
+            x = torch.nn.functional.max_pool2d(x, kernel_size=(self.downsample_ratio, self.downsample_ratio))
         x = x / 255.
+        if self.downsample_ratio is not None and save:
+            # either downsample by interpolate
+            # x = torch.nn.functional.interpolate(x, scale_factor=self.downsample_ratio,)
+            # but faster is downsample by e.g. maxpooling
+            x = torch.nn.functional.max_pool2d(x, kernel_size=(self.downsample_ratio, self.downsample_ratio))
 
+            small_x = (x * 255).permute(2, 0, 1).numpy().astype(np.int64)
+            #new_file_path = file_path.split("/")[-1]
+            #save_path = f"{self.root}_{self.downsample_ratio}/{new_file_path}"
+            save_path = self.root.parent / (self.root.name + f"_{self.downsample_ratio}") / file_path.name
+            np.save(save_path, small_x)
+            self.sampled[image_id] = save_path
         return x, y

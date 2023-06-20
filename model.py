@@ -9,8 +9,11 @@ from pytorch_YOLOv4.tool.darknet2pytorch import Darknet
 from pytorch_YOLOv4.train import Yolo_loss
 from pytorch_YOLOv4.models import Yolov4
 
+from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor, _validate_trainable_layers
+from torchvision.models.detection.faster_rcnn import _default_anchorgen, FasterRCNN, FastRCNNConvFCHead, RPNHead
 
-def MaskRCNN(in_channels=5, num_classes=2, trainable_backbone_layers=5, image_mean=None, image_std=None, **kwargs):
+
+def bigMaskRCNN(in_channels=5, num_classes=2, trainable_backbone_layers=5, image_mean=None, image_std=None, **kwargs):
     if image_mean is None:
         image_mean = [0.485, 0.456, 0.406, 0.5, 0.5]
     if image_std is None:
