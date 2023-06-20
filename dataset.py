@@ -27,7 +27,7 @@ class DroneImages(torch.utils.data.Dataset):
         
         self.transforms = tv.transforms.Compose([
             tv.transforms.ToTensor(),
-            tv.ops.Permute([0, 2, 1]),  # makes (c, h, w)
+            tv.ops.Permute([2, 0, 1]),  # makes (c, h, w)
         ])
         
         if augment:
@@ -108,7 +108,7 @@ class DroneImages(torch.utils.data.Dataset):
             'labels': labels,  # Int64Tensor[N]
             'masks': masks,  # UIntTensor[N, H, W]
         }
-        x = self.transforms(x).permute((2,0,1))
+        x = self.transforms(x)
         x = x / 255.
         
         print(f'type of image x: {type(x)}')
