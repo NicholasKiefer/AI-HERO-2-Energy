@@ -30,4 +30,4 @@ module load lib/hdf5/1.12
 module load devel/cuda/11.8
 
 source ${group_workspace}/energy_venv/bin/activate
-srun python ${group_workspace}/AI-HERO-2-Energy/train.py --batch 4 --epochs 2 --lr 1e-3 --root ${data_workspace}
+srun python ${group_workspace}/AI-HERO-2-Energy/train.py --batch 1 --epochs 2 --lr 1e-3 --root ${data_workspace}
