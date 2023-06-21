@@ -103,7 +103,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch', default=1, help='batch size', type=int)
     parser.add_argument('-m', '--model', default='checkpoint.pt', help='model checkpoint', type=str)
     parser.add_argument('-s', '--seed', default=42, help='constant random seed for reproduction', type=int)
-    parser.add_argument('root', help='path to the data root', type=str)
+    parser.add_argument('--root', help='path to the data root', type=str)
 
     arguments = parser.parse_args()
     predict(arguments)
