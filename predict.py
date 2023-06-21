@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from dataset import DroneImages
 from metric import to_mask, IntersectionOverUnion
-from model import bigMaskRCNN as MaskRCNN 
+from model import bigMaskRCNN 
 from tqdm import tqdm
 
 def collate_fn(batch) -> tuple:
@@ -64,17 +64,18 @@ def predict(hyperparameters: argparse.Namespace):
                         drop_last=True)
 
     # initialize the U-Net model
-    model = MaskRCNN()
+    model = bigMaskRCNN()
+    # wrap model with ddp
+    model = DDP(model,
+                device_ids=[slurm_localid],
+                output_device=slurm_localid)
     if hyperparameters.model:
         if rank == 0:
             print(f'Restoring model checkpoint from {hyperparameters.model}')
         model.load_state_dict(torch.load(hyperparameters.model))
     model.to(device)
 
-    # wrap model with ddp
-    model = DDP(model,
-                device_ids=[slurm_localid],
-                output_device=slurm_localid)
+
     
     # set the model in evaluation mode
     model.eval()
