@@ -53,15 +53,17 @@ def predict(hyperparameters: argparse.Namespace):
     # test_data = drone_images
 
     train_fraction = 0.02
-    valid_fraction = 0.01
+    valid_fraction = 0.10
     tests_fraction = 1. - (train_fraction + valid_fraction)
     train_data, test_data, _ = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
+
+
 
     test_sampler = torch.utils.data.distributed.DistributedSampler(
                         test_data,
                         num_replicas=torch.distributed.get_world_size(),
-                        rank=torch.distributed.get_rank(),
-                        drop_last=True)
+                        rank=torch.distributed.get_rank()
+                        )
 
     # initialize the U-Net model
     model = bigMaskRCNN()
@@ -81,24 +83,29 @@ def predict(hyperparameters: argparse.Namespace):
     # set the model in evaluation mode
     model.eval()
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=hyperparameters.batch, collate_fn=collate_fn,sampler=test_sampler)
-
+   
     # test procedure
     test_metric = IntersectionOverUnion(task='multiclass', num_classes=2)
     test_metric = test_metric.to(device)
     
     for i, batch in enumerate(tqdm(test_loader, desc='test ')):
+        
         x_test, test_label = batch
         x_test = list(image.to(device) for image in x_test)
+        
         test_label = [{k: v.to(device) for k, v in l.items()} for l in test_label]
 
         # score_threshold = 0.7
         with torch.no_grad():
             test_predictions = model(x_test)
             test_metric(*to_mask(test_predictions, test_label))
-    if rank == 0:
-        test_iou = torch.distributed.all_reduce(torch.tensor(test_metric.compute(),device=device))   
-        print(f'Test IoU: {test_iou}')
+
+
     
+    test_iou = test_metric.compute()
+    torch.distributed.all_reduce(torch.tensor(test_iou,device=device))
+    print(f'Test IoU: {test_iou/world_size}, rank: {rank}')
+
         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
