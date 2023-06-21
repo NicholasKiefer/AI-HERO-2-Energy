@@ -27,7 +27,7 @@ class DroneImages(torch.utils.data.Dataset):
         
         self.transforms = tv.transforms.Compose([
             tv.transforms.ToTensor(),
-            tv.ops.Permute([0, 2, 1]),  # makes (c, h, w)
+            #tv.ops.Permute([0, 2, 1]),  # makes (c, h, w)
         ])
         
         if augment:
