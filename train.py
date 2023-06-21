@@ -50,14 +50,12 @@ def train(hyperparameters: argparse.Namespace):
                             rank=rank, 
                             world_size=world_size, 
                             init_method="env://")
-
     # determines the execution device, i.e. CPU or GPU
-
 
 
     # set up the dataset
     drone_images = DroneImages(hyperparameters.root, downsample_ratio=None, augment=False)
-    train_fraction = 0.9
+    train_fraction = 0.2
     valid_fraction = 0.1
     tests_fraction = 1. - (train_fraction + valid_fraction)
     train_data, valid_data, _ = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
@@ -92,17 +90,15 @@ def train(hyperparameters: argparse.Namespace):
 
     writer = SummaryWriter()
 
-    train_loader = torch.utils.data.DataLoader(
-        train_data,
-        batch_size=hyperparameters.batch,
-        drop_last=True,
-        collate_fn=collate_fn,
-        sampler=train_sampler)
-
-
     
     # start the actual training procedure
     for epoch in range(hyperparameters.epochs):
+        train_loader = torch.utils.data.DataLoader(
+            train_data,
+            batch_size=hyperparameters.batch,
+            drop_last=True,
+            collate_fn=collate_fn,
+            sampler=train_sampler)
         # set the model into training mode
         model.train()
 
@@ -111,18 +107,20 @@ def train(hyperparameters: argparse.Namespace):
         train_metric = IntersectionOverUnion(task='multiclass', num_classes=2)
         train_metric = train_metric.to(device)
         
-        for i, batch in enumerate(tqdm(train_loader, desc='train')):
+        for i, batch in enumerate(tqdm(train_loader, desc='train', disable=True if rank != 0 else False)):
+            model.train()
             x, label = batch
             x = list(image.to(device) for image in x)
             label = [{k: v.to(device) for k, v in l.items()} for l in label]
             model.zero_grad()
+            optimizer.zero_grad()
             losses = model(x, label)
             loss = sum(l for l in losses.values())
 
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
-
+            loss = 0
             # compute metric
             with torch.no_grad():
                 model.eval()
@@ -130,15 +128,19 @@ def train(hyperparameters: argparse.Namespace):
                 #for i,item in enumerate(train_predictions):
                 #    train_predictions[i]['masks'] = torch.transpose(item['masks'],-1,-2)
                 train_metric(*to_mask(train_predictions, label))
-                model.train()
-            writer.add_scalar("loss/train", loss.item(), epoch)
-            writer.add_scalar("iou/train", train_metric.compute(), epoch)
-                
-        train_loss /= len(train_loader)
+            label = 0
+            x = 0
+        writer.add_scalar("loss/train", train_loss, epoch)
+        writer.add_scalar("iou/train", train_metric.compute().item(), epoch)
 
+        train_loss /= len(train_loader)
+        train_loader = 0
 
         # set the model in evaluation mode
         model.eval()
+        model.zero_grad()
+        optimizer.zero_grad()
+        torch.cuda.empty_cache()
         # test_loader = torch.utils.data.DataLoader(valid_data, batch_size=hyperparameters.batch, collate_fn=collate_fn)
         test_loader = torch.utils.data.DataLoader(
             valid_data,
@@ -151,31 +153,37 @@ def train(hyperparameters: argparse.Namespace):
         test_metric = IntersectionOverUnion(task='multiclass', num_classes=2)
         test_metric = test_metric.to(device)
         
-        for i, batch in enumerate(tqdm(test_loader, desc='test ')):
-            x_test, test_label = batch
-            x_test = list(image.to(device) for image in x_test)
-            test_label = [{k: v.to(device) for k, v in l.items()} for l in test_label]
+        with torch.no_grad():
+            for i, batch in enumerate(tqdm(test_loader, desc='test ', disable=True if rank != 0 else False)):
+                x_test, test_label = batch
+                x_test = list(image.to(device) for image in x_test)
+                test_label = [{k: v.to(device) for k, v in l.items()} for l in test_label]
 
-            # score_threshold = 0.7
-            with torch.no_grad():
+                # score_threshold = 0.7
                 test_predictions = model(x_test)
                 #for i,item in enumerate(test_predictions):
                 #    test_predictions[i]['masks'] = torch.transpose(item['masks'],-1,-2)
                 test_metric(*to_mask(test_predictions, test_label))
+                test_predictions = 0
+                x_test = 0
+                test_label = 0
 
-        writer.add_scalar("iou/test", test_metric.compute())
+        writer.add_scalar("iou/test", test_metric.compute().item())
         # output the losses
 
+        # Compute average distributed train loss.
+        torch.distributed.all_reduce(torch.tensor(train_loss,device=device)) # Allreduce rank-local mini-batch losses.
+        train_loss /= world_size # Average allreduced rank-local mini-batch losses over all ranks.
+        # average train IoU
+        train_iou = train_metric.compute()
+        torch.distributed.all_reduce(torch.tensor(train_iou,device=device))
+        train_iou /= world_size
+        # average test IoU
+        test_iou = test_metric.compute()
+        torch.distributed.all_reduce(torch.tensor(test_iou,device=device))      
+        test_iou /= world_size 
+        
         if rank == 0:
-            # Compute average distributed train loss.
-            torch.distributed.all_reduce(torch.tensor(train_loss,device=device)) # Allreduce rank-local mini-batch losses.
-            train_loss /= world_size # Average allreduced rank-local mini-batch losses over all ranks.
-            # average train IoU
-            train_iou = train_metric.compute()
-            torch.distributed.all_reduce(torch.tensor(train_iou,device=device))
-            # average test IoU
-            test_iou = train_metric.compute()
-            torch.distributed.all_reduce(torch.tensor(test_iou,device=device))       
             print(f'Epoch {epoch}')
             print(f'\tTrain loss: {train_loss}')
             print(f'\tTrain IoU:  {train_iou}')
@@ -184,9 +192,22 @@ def train(hyperparameters: argparse.Namespace):
             if test_iou > best_iou:
                 best_iou = test_iou
                 print('\tSaving better model\n')
-                torch.save(model.state_dict(), 'checkpoint.pt')
+                torch.save(model.state_dict(), 'checkpoint_test.pt')
             else:
                 print('\n')
+        
+        test_loader = 0
+        train_metric = 0
+        test_metric = 0
+        train_iou = 0
+        test_iou = 0
+        train_loss = 0
+        losses = 0
+        x_test = 0
+        test_predictions = 0
+        x = 0
+        label = 0
+        torch.cuda.empty_cache()
     writer.flush()
     writer.close()
 

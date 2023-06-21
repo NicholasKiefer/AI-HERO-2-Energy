@@ -106,6 +106,7 @@ def predict(hyperparameters: argparse.Namespace):
     torch.distributed.all_reduce(torch.tensor(test_iou,device=device))
     print(f'Test IoU: {test_iou/world_size}, rank: {rank}')
 
+    dist.destroy_process_group()
         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
