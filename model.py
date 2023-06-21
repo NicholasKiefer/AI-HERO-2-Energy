@@ -31,8 +31,8 @@ def smallMaskRCNN(in_channels=5, num_classes=2, trainable_backbone_layers=5, ima
         image_std = [0.229, 0.224, 0.225, 0.225, 0.225]
     
     # backbone = resnet34(progress=True)
-    backbone = resnet18(progress=True)
-    # backbone = resnet50(progress=True)
+    # backbone = resnet18(progress=True)
+    backbone = resnet50(progress=True)
     
     backbone = _resnet_fpn_extractor(backbone, trainable_backbone_layers, norm_layer=nn.BatchNorm2d)
     rpn_anchor_generator = _default_anchorgen()

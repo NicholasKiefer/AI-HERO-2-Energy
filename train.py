@@ -55,7 +55,7 @@ def train(hyperparameters: argparse.Namespace):
 
     # set up the dataset
     drone_images = DroneImages(hyperparameters.root, downsample_ratio=None, augment=False)
-    train_fraction = 0.2
+    train_fraction = 0.9
     valid_fraction = 0.1
     tests_fraction = 1. - (train_fraction + valid_fraction)
     train_data, valid_data, _ = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
@@ -192,7 +192,7 @@ def train(hyperparameters: argparse.Namespace):
             if test_iou > best_iou:
                 best_iou = test_iou
                 print('\tSaving better model\n')
-                torch.save(model.state_dict(), 'checkpoint_test.pt')
+                torch.save(model.state_dict(), 'checkpoint_test_big.pt')
             else:
                 print('\n')
         
