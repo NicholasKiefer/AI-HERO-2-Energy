@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from dataset import DroneImages
 from metric import to_mask, IntersectionOverUnion
-from model import bigMaskRCNN 
+from model import bigMaskRCNN, smallMaskRCNN
 from tqdm import tqdm
 
 def collate_fn(batch) -> tuple:
@@ -66,7 +66,7 @@ def predict(hyperparameters: argparse.Namespace):
                         )
 
     # initialize the U-Net model
-    model = bigMaskRCNN()
+    model = smallMaskRCNN()
     model.to(device)
     # wrap model with ddp
     model = DDP(model,
@@ -106,6 +106,7 @@ def predict(hyperparameters: argparse.Namespace):
     torch.distributed.all_reduce(torch.tensor(test_iou,device=device))
     print(f'Test IoU: {test_iou/world_size}, rank: {rank}')
 
+    dist.destroy_process_group()
         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
