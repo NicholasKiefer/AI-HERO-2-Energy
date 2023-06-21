@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dataset import DroneImages
 from metric import to_mask, IntersectionOverUnion
-from model import bigMaskRCNN
+from model import bigMaskRCNN, smallMaskRCNN
 from tqdm import tqdm
 
 
@@ -57,8 +57,8 @@ def train(hyperparameters: argparse.Namespace):
 
     # set up the dataset
     drone_images = DroneImages(hyperparameters.root, downsample_ratio=None, augment=False)
-    train_fraction = 0.02
-    valid_fraction = 0.01
+    train_fraction = 0.9
+    valid_fraction = 0.1
     tests_fraction = 1. - (train_fraction + valid_fraction)
     train_data, valid_data, _ = torch.utils.data.random_split(drone_images, [train_fraction, valid_fraction, tests_fraction])
 
@@ -79,7 +79,7 @@ def train(hyperparameters: argparse.Namespace):
     
 
     # initialize MaskRCNN model
-    model = bigMaskRCNN()
+    model = smallMaskRCNN()
     model.to(device)
     
     # wrap model with ddp
