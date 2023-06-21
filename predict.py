@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from dataset import DroneImages
 from metric import to_mask, IntersectionOverUnion
-from model import MaskRCNN
+from model import bigMaskRCNN as MaskRCNN 
 from tqdm import tqdm
 
 def collate_fn(batch) -> tuple:
