@@ -65,11 +65,11 @@ def predict(hyperparameters: argparse.Namespace):
 
     # initialize the U-Net model
     model = bigMaskRCNN()
+    model.to(device)
     # wrap model with ddp
     model = DDP(model,
                 device_ids=[slurm_localid],
                 output_device=slurm_localid)
-    model.to(device)
     if hyperparameters.model:
         if rank == 0:
             print(f'Restoring model checkpoint from {hyperparameters.model}')
