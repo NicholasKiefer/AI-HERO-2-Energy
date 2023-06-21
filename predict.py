@@ -69,11 +69,12 @@ def predict(hyperparameters: argparse.Namespace):
     model = DDP(model,
                 device_ids=[slurm_localid],
                 output_device=slurm_localid)
+    model.to(device)
     if hyperparameters.model:
         if rank == 0:
             print(f'Restoring model checkpoint from {hyperparameters.model}')
         model.load_state_dict(torch.load(hyperparameters.model))
-    model.to(device)
+    
 
 
     
