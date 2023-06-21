@@ -59,7 +59,8 @@ def train(hyperparameters: argparse.Namespace):
 
 
     # set up the dataset
-    drone_images = DroneImages(hyperparameters.root, downsample_ratio=None, augment=False)
+    downsampling = hyperparameters.downsampling
+    drone_images = DroneImages(hyperparameters.root, downsample_ratio=downsampling, augment=False)
     train_fraction = 0.02
     valid_fraction = 0.01
     tests_fraction = 1. - (train_fraction + valid_fraction)
@@ -118,6 +119,9 @@ def train(hyperparameters: argparse.Namespace):
             x, label = batch
             x = list(image.to(device) for image in x)
             label = [{k: v.to(device) for k, v in l.items()} for l in label]
+            for j in range(len(label)):
+                label[j]['boxes'] = label[j]['boxes'] * downsampling
+                label[j]['masks'] = torch.nn.functional.max_pool2d(label[j]['masks'], kernel_size=(downsampling, downsampling))
             model.zero_grad()
             losses = model(x, label)
             loss = sum(l for l in losses.values())
@@ -164,7 +168,7 @@ def train(hyperparameters: argparse.Namespace):
                 test_predictions = model(x_test)
                 #for i,item in enumerate(test_predictions):
                 #    test_predictions[i]['masks'] = torch.transpose(item['masks'],-1,-2)
-                test_metric(*to_mask(test_predictions, test_label))
+                test_metric(*to_mask(test_predictions, test_label, upsampling=downsampling))
 
         writer.add_scalar("iou/test", test_metric.compute())
         # output the losses
@@ -205,6 +209,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--seed', default=42, help='constant random seed for reproduction', type=int)
     # parser.add_argument('root', help='path to the data root', type=str)
     parser.add_argument('--root', default='/hkfs/work/workspace/scratch/dz4120-energy-train-data/', help='path to the data root', type=str)
+    parser.add_argument('--downsampling', type=int, default=2)
 
     arguments = parser.parse_args()
     train(arguments)
