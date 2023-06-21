@@ -1,3 +1,9 @@
+link to zenodo weights: https://zenodo.org/record/8064055
+
+our venv is in energy_venv/
+
+
+
 # AI HERO 2 Challenge Use Case Energy
 
 This is the complete source code for the AI HERO Hackathon 2 (2023) for the Use Case Energy. The task is to segment thermal bridge instances, i.e. weak points in building envelopes that leak thermal energy, in fly-over drone images.
