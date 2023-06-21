@@ -50,12 +50,9 @@ def train(hyperparameters: argparse.Namespace):
                             rank=rank, 
                             world_size=world_size, 
                             init_method="env://")
-    if dist.is_initialized():
-        print(f"Rank {rank}/{world_size}: Process group initialized with torch rank {torch.distributed.get_rank()} and torch world size {torch.distributed.get_world_size()}.")
 
     # determines the execution device, i.e. CPU or GPU
 
-    print(f'Training on {device}')
 
 
     # set up the dataset
@@ -169,18 +166,18 @@ def train(hyperparameters: argparse.Namespace):
         writer.add_scalar("iou/test", test_metric.compute())
         # output the losses
 
-        # Compute average distributed train loss.
-        torch.distributed.all_reduce(torch.tensor(train_loss,device=device)) # Allreduce rank-local mini-batch losses.
-        train_loss /= world_size # Average allreduced rank-local mini-batch losses over all ranks.
-        # average train IoU
-        train_iou = train_metric.compute()
-        torch.distributed.all_reduce(torch.tensor(train_iou,device=device))
-        # average test IoU
-        test_iou = train_metric.compute()
-        torch.distributed.all_reduce(torch.tensor(test_iou,device=device))       
-        print(f'Epoch {epoch}')
-        print(f'\tTrain loss: {train_loss}')
         if rank == 0:
+            # Compute average distributed train loss.
+            torch.distributed.all_reduce(torch.tensor(train_loss,device=device)) # Allreduce rank-local mini-batch losses.
+            train_loss /= world_size # Average allreduced rank-local mini-batch losses over all ranks.
+            # average train IoU
+            train_iou = train_metric.compute()
+            torch.distributed.all_reduce(torch.tensor(train_iou,device=device))
+            # average test IoU
+            test_iou = train_metric.compute()
+            torch.distributed.all_reduce(torch.tensor(test_iou,device=device))       
+            print(f'Epoch {epoch}')
+            print(f'\tTrain loss: {train_loss}')
             print(f'\tTrain IoU:  {train_iou}')
             print(f'\tTest IoU:   {test_iou}')
             # save the best performing model on disk
